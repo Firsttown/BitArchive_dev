@@ -1,0 +1,1 @@
+/usr/bin/c++ -g -Wl,--dependency-file=CMakeFiles/BitAchive.dir/link.d CMakeFiles/BitAchive.dir/main.cpp.o -o BitAchive

@@ -1,0 +1,8 @@
+[
+{
+  "directory": "/home/radioglitch/BitArchive_dev/build",
+  "command": "/usr/bin/c++   -g -o CMakeFiles/BitAchive.dir/main.cpp.o -c /home/radioglitch/BitArchive_dev/main.cpp",
+  "file": "/home/radioglitch/BitArchive_dev/main.cpp",
+  "output": "CMakeFiles/BitAchive.dir/main.cpp.o"
+}
+]

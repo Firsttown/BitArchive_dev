@@ -1,0 +1,3 @@
+/home/radioglitch/BitArchive_dev/build/CMakeFiles/BitAchive.dir
+/home/radioglitch/BitArchive_dev/build/CMakeFiles/edit_cache.dir
+/home/radioglitch/BitArchive_dev/build/CMakeFiles/rebuild_cache.dir
