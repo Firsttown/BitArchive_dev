@@ -9,10 +9,7 @@
 #include <sys/ioctl.h>
 #include <cmath>
 #include "archivator/archivator.h"
-
-
 namespace fs = std::filesystem;
-
 class Terminal
 {
 public:
@@ -27,24 +24,20 @@ public:
         raw.c_lflag &= ~(ECHO | ICANON);
         tcsetattr(STDIN_FILENO, TCSAFLUSH, &raw);
     }
-
     void restore()
     {
         tcsetattr(STDIN_FILENO, TCSAFLUSH, &orig_term);
         std::system("clear");
     }
-
     static int getWindowHeigh()
     {
         winsize ws;
         ioctl(STDOUT_FILENO, TIOCGWINSZ, &ws);
         return ws.ws_row;
     }
-
 private:
     termios orig_term;
 };
-
 class FileExplorer
 {
 public:
@@ -52,13 +45,11 @@ public:
         current_path = fs::current_path();
         listDirectory();
     }
-
     void run()
     {
         Terminal term;
         term.setRawMode();
         char c;
-
         while ((c = getchar()) != 'q')
         {
             switch(c)
@@ -77,7 +68,6 @@ public:
                         }
                     }
                 break;
-
                 case '\n': 
                     openSelected();
                 break;
@@ -88,31 +78,31 @@ public:
                 
                 case 'r':
                     refresh();
+                break;
+                case 'c':
+                break;
+                case 'v':
                 break;    
             }
             display();
         }
         term.restore();
     }
-
 private:
     void listDirectory()
     {
         entries.clear();
         cursor_pos = 0;
         top_line = 0;
-
         if(current_path.has_parent_path())
         {
             entries.push_back("..");
         }
-
         for(const auto& entry : fs::directory_iterator(current_path))
         {
             entries.push_back(entry.path().filename());
         }
     }
-
     void display()
     {
         std::system("clear");
@@ -123,7 +113,6 @@ private:
         
         int max_line = Terminal::getWindowHeigh() - 5;
         int end_line = std::min(top_line + max_line, (int)entries.size());
-
         for(int i = top_line; i < end_line; i++)
         {
             if(i == cursor_pos)
@@ -134,7 +123,6 @@ private:
             {
                 std::cout << " ";
             }
-
             fs::path full_path = current_path / entries[i];
             
             if(fs::is_directory(full_path))
@@ -150,12 +138,13 @@ private:
         std::cout << "╔═════════╦══════════════╦═══════════════╦══════════╦════════════╗" << std::endl;
         std::cout << "║ q-выход ║ ↑↓-навигация ║ Enter-открыть ║ h-наверх ║ r-обновить ║" << std::endl;
         std::cout << "╚═════════╩══════════════╩═══════════════╩══════════╩════════════╝" << std::endl;
+        std::cout << "╔═══════════════════════════════╦════════════════════════════════╗" << std::endl;
+        std::cout << "║          С-Архивировать       ║      V - разархевировать       ║" << std::endl;
+        std::cout << "╚═══════════════════════════════╩════════════════════════════════╝" << std::endl;
     }
-
     void moveCursor(int delta)
     {
         cursor_pos = std::max(0, std::min((int)entries.size() - 1, cursor_pos + delta));
-
         int max_lines = Terminal::getWindowHeigh() - 5;
         if(cursor_pos < top_line)
         {
@@ -166,12 +155,10 @@ private:
             top_line = cursor_pos - (max_lines + 1);
         }
     }
-
     void openSelected()
     {
         fs::path selected = entries[cursor_pos];
         fs::path new_path = current_path / selected;
-
         if(fs::is_directory(new_path))
         {
             current_path = new_path;
@@ -182,7 +169,6 @@ private:
             viewFile(new_path);
         }
     }
-
     void navigateToParent()
     {
         if(current_path.has_parent_path())
@@ -191,13 +177,11 @@ private:
             listDirectory();
         }
     }
-
     void viewFile(const fs::path& path)
     {
         std::system("clear");
         std::cout << "File: " << path << std::endl;
         std::cout << "═══════════════════════════════════════════════" << std::endl;
-
         std::ifstream file(path);
         if(file)
         {
@@ -211,16 +195,13 @@ private:
         {
             std::cout << "file oppening ERR";
         }
-
         std::cout << "Press eny key to return....";
         getchar();
     }
-
     void refresh()
     {
         listDirectory();
     }
-
     fs::path current_path;
     std::vector<fs::path> entries;
     int cursor_pos;
