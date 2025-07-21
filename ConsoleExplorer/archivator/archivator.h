@@ -72,17 +72,19 @@ public:
 };
 
 
-struct HuffmanNode
-{
+struct HuffmanNode {
     uint8_t symbol;
     uint32_t freq;
-
     HuffmanNode* left;
     HuffmanNode* right;
 
     HuffmanNode(uint8_t sym, uint32_t fr) : symbol(sym), freq(fr), left(nullptr), right(nullptr) {}
-    HuffmanNode(HuffmanNode* l, HuffmanNode* r) : symbol(0), freq(l -> freq + r -> freq), left(l), right(r) {}
+    HuffmanNode(HuffmanNode* l, HuffmanNode* r) : symbol(0), freq(l->freq + r->freq), left(l), right(r) {}
+    
+    bool isLeaf() const { return !left && !right; }
 };
+
+
 
 struct Compare
 {
@@ -94,6 +96,20 @@ struct Compare
     }
 
 };
+
+void serializeTree(HuffmanNode* root, BitWriter& writer) 
+{
+    if (!root) return;
+    
+    if (root->isLeaf()) {
+        writer.writeBit(1);
+        writer.writeByte(root->symbol);
+    } else {
+        writer.writeBit(0);
+        serializeTree(root->left, writer);
+        serializeTree(root->right, writer);
+    }
+}
 
 void freeTree(HuffmanNode* node)
 {
@@ -158,56 +174,62 @@ HuffmanNode* buildHuffmanTree(std::unordered_map<uint8_t, uint32_t>& freqTable)
     return pq.empty() ? nullptr : pq.top();
 }
 
-void compress(const std::string& inputFile, const std::string& outputFile)
+void serializeTree(HuffmanNode* root, BitWriter& writer) 
 {
-    std::ifstream input(inputFile, std::ios::binary);
+    if (!root) return;
     
-    if(!input)
-    {
-        std::cerr << "Open File ERR" << std::endl;
-        return;
+    if (root->isLeaf()) {
+        writer.writeBit(1);
+        writer.writeByte(root->symbol);
+    } else {
+        writer.writeBit(0);
+        serializeTree(root->left, writer);
+        serializeTree(root->right, writer);
     }
+}
+
+HuffmanNode* deserializeTree(BitReader& reader) 
+{
+    uint8_t bit = reader.readBit();
+    
+    if (bit == 1) {
+        uint8_t symbol = reader.readByte();
+        return new HuffmanNode(symbol, 0); // Частота не важна при распаковке
+    } else {
+        HuffmanNode* left = deserializeTree(reader);
+        HuffmanNode* right = deserializeTree(reader);
+        return new HuffmanNode(left, right);
+    }
+}
+
+void compress(const std::string& inputFile, const std::string& outputFile) {
+    std::ifstream input(inputFile, std::ios::binary);
+    if (!input) throw std::runtime_error("Cannot open input file: " + inputFile);
 
     std::ofstream output(outputFile, std::ios::binary);
-    if(!output)
-    {
-        std::cerr << "Open File ERR" << std::endl;
-        return;
-    }
+    if (!output) throw std::runtime_error("Cannot open output file: " + outputFile);
 
     auto freqTable = buildFrequencyTable(input);
     HuffmanNode* root = buildHuffmanTree(freqTable);
     
+    
     std::unordered_map<uint8_t, std::string> codes;
     generateCodes(root, "", codes);
 
+    
     uint32_t fileSize = 0;
-
-    for(const auto& pair : freqTable)
-    {
-        fileSize += pair.second;
-    }
-
+    for (const auto& pair : freqTable) fileSize += pair.second;
     output.write(reinterpret_cast<const char*>(&fileSize), sizeof(fileSize));
-    uint32_t uniqueCount = freqTable.size();
-    output.write(reinterpret_cast<const char*>(&uniqueCount), sizeof(uniqueCount));
-
-    for(const auto& pair : freqTable)
-    {
-        uint8_t symbol = pair.first;
-        uint32_t freq = pair.second;
-
-        output.put(symbol);
-        output.write(reinterpret_cast<const char*>(&freq), sizeof(freq));
-    }
 
     BitWriter bitWriter(output);
+    
+   
+    serializeTree(root, bitWriter);
+    
+   
     uint8_t byte;
-
-    while(input.read(reinterpret_cast<char*>(&byte), sizeof(byte)))
-    {
-        for(char bit : codes[byte])
-        {
+    while (input.read(reinterpret_cast<char*>(&byte), sizeof(byte))) {
+        for (char bit : codes[byte]) {
             bitWriter.writeBit(bit == '1' ? 1 : 0);
         }
     }
@@ -215,66 +237,33 @@ void compress(const std::string& inputFile, const std::string& outputFile)
     freeTree(root);
 }
 
-void decompress(const std::string& inputFie, const std::string& outputFile)
+void decompress(const std::string& inputFile, const std::string& outputFile) 
 {
-    std::ifstream input(inputFie, std::ios::binary);
-    
-    if (!input) 
-    {
-        std::cerr << "Error opening input file" << std::endl;
-        return;
-    }
+    std::ifstream input(inputFile, std::ios::binary);
+    if (!input) throw std::runtime_error("Cannot open input file: " + inputFile);
     
     std::ofstream output(outputFile, std::ios::binary);
-    
-    if (!output)
-    {
-        std::cerr << "Error opening output file" << std::endl;
-        return;
-    }
+    if (!output) throw std::runtime_error("Cannot open output file: " + outputFile);
 
+    
     uint32_t fileSize;
-    input.read(reinterpret_cast<char*>(&fileSize), sizeof(fileSize));
+    input.read(reinterpret_cast<const char*>(&fileSize), sizeof(fileSize));
+    if (fileSize == 0) return;
 
-    uint32_t uniqueCount;
-    input.read(reinterpret_cast<char*>(&uniqueCount), sizeof(uniqueCount));
-
-    std::unordered_map<uint8_t, uint32_t> freqTable;
+    BitReader bitReader(input);
+    
+   
+    HuffmanNode* root = deserializeTree(bitReader);
     
     
-    for(uint32_t i = 0; i < uniqueCount; i++)
-    {
-        uint8_t symbol = input.get();
-        uint32_t freq;
-        input.read(reinterpret_cast<char*>(&freq), sizeof(freq));
-        freqTable[symbol] = freq;
-    }
-
-    HuffmanNode* root = buildHuffmanTree(freqTable);
-
-    if (fileSize > 0 && root == nullptr) {
-        std::cerr << "Error: Huffman tree is null for non-empty file." << std::endl;
-        freeTree(root);
-        return;
-    }
-
-    BitReader bitReadr(input);
-
     for (uint32_t i = 0; i < fileSize; i++) {
         HuffmanNode* node = root;
-        while (node && (node->left || node->right)) {
-            uint8_t bit = bitReadr.readBit();
-            if (bit == 0) {
-                node = node->left;
-            } else {
-                node = node->right;
-            }
-        }
-        if (node == nullptr) {
-            std::cerr << "Error: reached null node during decompression." << std::endl;
-            break;
+        while (!node->isLeaf()) {
+            uint8_t bit = bitReader.readBit();
+            node = (bit == 0) ? node->left : node->right;
         }
         output.put(node->symbol);
     }
+
     freeTree(root);
 }
