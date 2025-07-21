@@ -79,10 +79,28 @@ public:
                 case 'r':
                     refresh();
                 break;
-                case 'c':
-                break;
-                case 'v':
-                break;    
+                case 'c': {
+                    fs::path input_path = current_path / entries[cursor_pos];
+                    if (!fs::is_directory(input_path)) {
+                        fs::path output_path = input_path;
+                        output_path += ".arc";
+                        compress(input_path.string(), output_path.string());
+                        refresh();
+                    }
+                    break;
+                }
+                case 'v': {
+                    fs::path input_path = current_path / entries[cursor_pos];
+                    if (!fs::is_directory(input_path)) {
+                        if (input_path.extension() == ".arc") {
+                            fs::path output_path = input_path;
+                            output_path.replace_extension("");
+                            decompress(input_path.string(), output_path.string());
+                            refresh();
+                        }
+                    }
+                    break;
+                }
             }
             display();
         }
@@ -139,7 +157,7 @@ private:
         std::cout << "║ q-выход ║ ↑↓-навигация ║ Enter-открыть ║ h-наверх ║ r-обновить ║" << std::endl;
         std::cout << "╚═════════╩══════════════╩═══════════════╩══════════╩════════════╝" << std::endl;
         std::cout << "╔═══════════════════════════════╦════════════════════════════════╗" << std::endl;
-        std::cout << "║          С-Архивировать       ║      V - разархевировать       ║" << std::endl;
+        std::cout << "║          C - Архивировать     ║      V - разархивировать      ║" << std::endl;
         std::cout << "╚═══════════════════════════════╩════════════════════════════════╝" << std::endl;
     }
     void moveCursor(int delta)

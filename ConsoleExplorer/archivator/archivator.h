@@ -88,7 +88,9 @@ struct Compare
 {
     bool operator()(HuffmanNode* a, HuffmanNode* b)
     {
-        return a -> freq, b -> freq;
+        if (a->freq != b->freq)
+            return a->freq > b->freq;
+        return a->symbol > b->symbol;
     }
 
 };
@@ -159,7 +161,7 @@ HuffmanNode* buildHuffmanTree(std::unordered_map<uint8_t, uint32_t>& freqTable)
 void compress(const std::string& inputFile, const std::string& outputFile)
 {
     std::ifstream input(inputFile, std::ios::binary);
-
+    
     if(!input)
     {
         std::cerr << "Open File ERR" << std::endl;
@@ -202,7 +204,7 @@ void compress(const std::string& inputFile, const std::string& outputFile)
     BitWriter bitWriter(output);
     uint8_t byte;
 
-    while(input.read(reinterpret_cast<char*>(&byte), input.good()))
+    while(input.read(reinterpret_cast<char*>(&byte), sizeof(byte)))
     {
         for(char bit : codes[byte])
         {
@@ -250,41 +252,29 @@ void decompress(const std::string& inputFie, const std::string& outputFile)
 
     HuffmanNode* root = buildHuffmanTree(freqTable);
 
-    BitReader bitReadr(input);
-    HuffmanNode* currentNode = root;
+    if (fileSize > 0 && root == nullptr) {
+        std::cerr << "Error: Huffman tree is null for non-empty file." << std::endl;
+        freeTree(root);
+        return;
+    }
 
-    for(uint32_t i = 0; i < fileSize; i++)
-    {
-        while(currentNode->left || currentNode->right)
-        {
+    BitReader bitReadr(input);
+
+    for (uint32_t i = 0; i < fileSize; i++) {
+        HuffmanNode* node = root;
+        while (node && (node->left || node->right)) {
             uint8_t bit = bitReadr.readBit();
-            currentNode = (bit == 0) ? currentNode->left : currentNode->right;
+            if (bit == 0) {
+                node = node->left;
+            } else {
+                node = node->right;
+            }
         }
-        output.put(currentNode->symbol);
-        currentNode = root;
+        if (node == nullptr) {
+            std::cerr << "Error: reached null node during decompression." << std::endl;
+            break;
+        }
+        output.put(node->symbol);
     }
     freeTree(root);
 }
-
-
-/*int main(int argc, char* argv[]) {
-    if (argc != 4) {
-        std::cerr << "Usage: " << argv[0] << " c|d input output" << std::endl;
-        return 1;
-    }
-    
-    std::string mode = argv[1];
-    std::string inputFile = argv[2];
-    std::string outputFile = argv[3];
-    
-    if (mode == "c") {
-        compress(inputFile, outputFile);
-    } else if (mode == "d") {
-        decompress(inputFile, outputFile);
-    } else {
-        std::cerr << "Invalid mode. Use 'c' for compress or 'd' for decompress" << std::endl;
-        return 1;
-    }
-    
-    return 0;
-}*/
